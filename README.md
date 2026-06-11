@@ -44,3 +44,97 @@ NL-BIC Table and SAC-BIC Table:
 Definition: Combine non-linearity and SAC with BIC for comprehensive analysis.
 Importance: Provide an integrated view of S-box strength.
 Operation: Quantify combined properties through advanced computations.
+
+
+PIPELINE OF THE IMPLEMENTATION:
+
+=========================================
+ 1. INITIALIZATION & SETUP
+=========================================
+      │
+      ├─► Initialize Hyperparameters (Pop Size, Gens, Island Count)
+      ├─► Set Up Data Structures (Elite Archive, Tabu Memory)
+      ├─► Generate Initial S-Boxes (Robust Seeds via AES + Random)
+      └─► Distribute S-Boxes across 'N' Islands
+      │
+      ▼
+=========================================
+ 2. JIT ENGINE COMPILATION (One-Time)
+=========================================
+      │
+      ├─► Compile Fast Walsh-Hadamard Transform (FWHT)
+      ├─► Compile Difference Distribution Table (DDT) evaluator
+      └─► Initial Fitness Evaluation of all Islands
+      │
+      ▼
+=========================================
+ 3. MAIN EVOLUTIONARY LOOP (Generations 1 to N)
+=========================================
+      │
+      ├─► [1. MIGRATION CHECK]
+      │     └─ Is it a migration generation? 
+      │          ├── YES: Swap top elite S-Boxes between islands
+      │          └── NO: Continue
+      │
+      ├─► [2. ADAPTIVE CALIBRATION]
+      │     ├─ Calculate global population diversity
+      │     ├─ Determine Phase (Early, Mid, Late)
+      │     └─ Update current weights (NL vs. DU) and Mutation Rates
+      │
+      ▼
+   ┌──────────────────────────────────────────────────────────┐
+   │ 4. PER-ISLAND PROCESSING (Executes for each island)      │
+   ├──────────────────────────────────────────────────────────┤
+   │  │                                                       │
+   │  ├─► Selection: Pick parents using NSGA-2                │
+   │  │                                                       │
+   │  ├─► Crossover: Diversity-Aware Order Crossover          │
+   │  │     └─ (Only triggers if parents are diverse enough)  │
+   │  │                                                       │
+   │  ├─► Mutation: Phase-Targeted                            │
+   │  │     ├─ Exploration Phase: Aggressive multi-bit flips  │
+   │  │     └─ Exploitation Phase: Hunt & swap weak bits      │
+   │  │                                                       │
+   │  ├─► Constraint Check: Repair Bijection                  │
+   │  │     └─ (Fix duplicates to ensure perfect 8-bit map)   │
+   │  │                                                       │
+   │  ├─► Memetic Step: Intense Local Search                  │
+   │  │     └─ (Hill-climb the top 20 offspring for max NL)   │
+   │  │                                                       │
+   │  ├─► Evaluation: Run JIT Engines on new offspring        │
+   │  │     └─ Fitness = (Max NL, Min DU, Min Weak Count)     │
+   │  │                                                       │
+   │  └─► Replacement & Archiving                             │
+   │        ├─ Merge parents & offspring, select best to keep │
+   │        └─ Send top performers to the Global Elite Archive│
+   └──────────────────────────────────────────────────────────┘
+      │
+      ▼
+=========================================
+ 5. STAGNATION & RESTART LOGIC
+=========================================
+      │
+      ├─► Did the Non-Linearity (NL) score improve recently?
+      │     ├── YES: Reset plateau counter. Proceed to next gen.
+      │     │
+      │     └── NO: Increment plateau counter.
+      │          │
+      │          └─ Has it been 25 generations without improvement?
+      │               ├── YES: TRIGGER ADAPTIVE RESTART
+      │               │     ├─ Add current top 10% to Tabu List
+      │               │     ├─ Keep top 10% alive
+      │               │     └─ Overwrite 90% with new seeds/randoms
+      │               │
+      │               └── NO: Continue to next gen.
+      │
+      ▼
+[ LOOP RETURNS TO STEP 3 UNTIL MAX GENERATIONS REACHED ]
+      │
+      ▼
+=========================================
+ 6. FINAL EXTRACTION
+=========================================
+      │
+      ├─► Extract "Last Generation Champion" (from active islands)
+      ├─► Extract "All-Time Best" (from the Elite Archive)
+      └─► Output S-Box Matrices and final NL/DU scores
